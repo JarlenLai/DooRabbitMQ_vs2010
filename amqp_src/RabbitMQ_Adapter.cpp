@@ -91,6 +91,7 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 		ErrorReturn = "无法获得套接字";
 		return -2;
 	}
+
 	int status = amqp_socket_open(m_sock,m_hostName.c_str(),m_port);
 	if(status<0)
 	{

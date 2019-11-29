@@ -1,0 +1,9 @@
+更新最新Rabbitmq版本
+（1）每次更新的时候将最新的build覆盖，build的生成参考有道云笔记
+（2）复制最新的头文件
+（3）复制最新的lib、dll文件（静态库）
+重新生成库文件
+（4）重新编译mq.sln生成Windows下的dll文件
+（5）重新编译makefile生成Linux下的so文件
+发布给用户
+（6）发布的时候只需要拷贝amqp_include和lib文件夹即可

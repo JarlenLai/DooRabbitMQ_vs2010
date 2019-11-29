@@ -1,0 +1,6 @@
+
+
+2016-7-3
+添加全局变量err，及其获取函数GetErr()
+Windows可以编译32位dll  
+Linux可以编译so
