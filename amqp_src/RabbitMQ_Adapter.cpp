@@ -76,27 +76,28 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 {
 	if (NULL != m_conn)
 	{
-		amqp_destroy_connection(m_conn);
+		ErrorReturn = "请先Disconnect释放连接资源再进行连接";
+		return -1;
 	}
 
 	m_conn = amqp_new_connection();
 	if(NULL==m_conn)
 	{
 		ErrorReturn = "无法获得连接";
-		return -1;
+		return -2;
 	}
 	m_sock =  amqp_tcp_socket_new(m_conn);
 	if(NULL==m_sock)
 	{
 		ErrorReturn = "无法获得套接字";
-		return -2;
+		return -3;
 	}
 
 	int status = amqp_socket_open(m_sock,m_hostName.c_str(),m_port);
 	if(status<0)
 	{
 		ErrorReturn = "无法连接目标主机";
-		return -3;
+		return -4;
 	}
 	
 	if(1 == AssertError(amqp_login(m_conn, "/", 0, 131072, 30, AMQP_SASL_METHOD_PLAIN,m_user.c_str(),m_psw.c_str()),"Loging in",ErrorReturn))
@@ -105,7 +106,7 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 		return 0;
 	}
 	else
-		return -4;
+		return -5;
 };
 
 
