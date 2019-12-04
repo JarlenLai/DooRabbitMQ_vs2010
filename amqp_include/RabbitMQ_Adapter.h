@@ -202,6 +202,17 @@ public:
 	*/ 
 	int32_t getMessageCount(const CQueue &queue,string &ErrorReturn=GetErr());
 	int32_t getMessageCount(const string &queuename,string &ErrorReturn=GetErr());
+
+	/**
+	* @brief IsConnect  判断是否已经连接MQ
+	* @param [out] ErrorReturn   错误信息
+	* @return 等于true值代表成功连接，false代表连接已经断开，错误信息从ErrorReturn返回
+    *  @par 示例:
+	*  @code
+	*  @endcode
+    *  @see
+	*/
+	bool IsConnect(string &ErrorReturn);
    
 	/**
 	* @brief setUser            设置登录用户名称 

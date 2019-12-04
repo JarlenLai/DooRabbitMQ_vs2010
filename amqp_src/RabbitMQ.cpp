@@ -31,6 +31,10 @@ int32_t CRabbitMQ::Connect(string &ErrorReturn)
 	return this->adapter->Connect(ErrorReturn);
 };
 
+bool CRabbitMQ::IsConnect(string &ErrorReturn)
+{
+	return this->adapter->IsConnect(ErrorReturn);
+}
 
 //step1 declare an exchange
  int32_t CRabbitMQ::exchange_declare(CExchange &exchange,string &ErrorReturn)

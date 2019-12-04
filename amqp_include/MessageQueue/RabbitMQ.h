@@ -61,6 +61,17 @@ public:
 	*/
    int32_t Disconnect(string &ErrorReturn=GetErr());
 
+   	/**
+	* @brief IsConnect  判断是否已经连接MQ
+	* @param [out] ErrorReturn   错误信息
+	* @return 等于true值代表成功连接，false代表连接已经断开，错误信息从ErrorReturn返回
+    *  @par 示例:
+	*  @code
+	*  @endcode
+    *  @see
+	*/
+	bool IsConnect(string &ErrorReturn);
+
        /**
 	*   @brief       exchange_declare   声明exchange
 	*	@param       [in]               exchange       交换机实例

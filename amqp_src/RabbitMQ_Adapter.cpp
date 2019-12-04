@@ -76,8 +76,13 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 {
 	if (NULL != m_conn)
 	{
-		ErrorReturn = "请先Disconnect释放连接资源再进行连接";
-		return -1;
+		if(amqp_destroy_connection(m_conn) < 0)
+		{
+			ErrorReturn = "无法释放连接MQ的资源,请确认";
+			return -1;
+		}
+
+		m_conn = NULL;
 	}
 
 	m_conn = amqp_new_connection();
@@ -109,13 +114,11 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 		return -5;
 };
 
-
 //step1 declare an exchange
  int32_t CRabbitMQ_Adapter::exchange_declare(CExchange &exchange,string &ErrorReturn)
 {
 	//创建exchange
 	
-
 	amqp_bytes_t _exchange = amqp_cstring_bytes(exchange.m_name.c_str());
 	amqp_bytes_t _type = amqp_cstring_bytes(exchange.m_type.c_str());
 	int32_t  _passive=exchange.m_passive;    
@@ -128,7 +131,12 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 	}
 
 	//amqp_channel_close(m_conn,m_channel, AMQP_REPLY_SUCCESS);
-	//delete this->m_exchange;
+	if (this->m_exchange != NULL)//重新声明Exchange时需释放上一个的资源
+	{
+		delete this->m_exchange;
+		this->m_exchange = NULL;
+	}
+	
 	this->m_exchange = new CExchange(exchange);
 	return 0;
 }
@@ -148,7 +156,13 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 		amqp_channel_close(m_conn,m_channel, AMQP_REPLY_SUCCESS);
 		return -1;
 	}
-	//delete this->m_queue;
+	
+	if (this->m_queue != NULL)//重新声明Queue时需释放上一个的资源
+	{
+		delete this->m_queue;
+		this->m_queue = NULL;
+	}
+
 	this->m_queue = new CQueue(queue);
 	//amqp_channel_close(m_conn,m_channel, AMQP_REPLY_SUCCESS);
 	return 0;
@@ -288,6 +302,33 @@ int32_t CRabbitMQ_Adapter::getMessageCount(const string &queuename,string &Error
 {
 	CQueue queue(queuename,1);
 	return getMessageCount(queue);
+}
+
+bool CRabbitMQ_Adapter::IsConnect(string &ErrorReturn)
+{
+	if(NULL == m_conn)
+	{
+		ErrorReturn = "还未创建连接";
+		return false;
+	}
+
+	if (this->m_exchange == NULL)
+	{
+		ErrorReturn = "Exchange Is NULL";
+		return false;//交换机未绑定下面无法继续,这里返回false表示未连接（这里后面得找个好方法判断一下才行,因为有可能已经连接但是没有声明交换机的情况呀）
+	}
+
+	amqp_bytes_t _exchange = amqp_cstring_bytes(this->m_exchange->m_name.c_str());
+	amqp_bytes_t _type = amqp_cstring_bytes(this->m_exchange->m_type.c_str());
+	int32_t  _passive=this->m_exchange->m_passive;    
+	int32_t  _durable=this->m_exchange->m_durable;      //交换机是否持久化
+	amqp_exchange_declare(m_conn,m_channel,_exchange,_type,_passive,_durable, 0, 0, amqp_empty_table);
+	if(1!=AssertError(amqp_get_rpc_reply(m_conn),"exchange_declare",ErrorReturn))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 int32_t CRabbitMQ_Adapter::queue_delete(const string queuename,int32_t if_unused,string &ErrorReturn)
