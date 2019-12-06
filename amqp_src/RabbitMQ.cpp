@@ -10,9 +10,9 @@ using namespace std;
 
 #include "RabbitMQ_Adapter.h"
  
-CRabbitMQ::CRabbitMQ(string HostName, uint32_t port,string usr,string psw)
+CRabbitMQ::CRabbitMQ(string HostName, uint32_t port,string usr,string psw, bool useConChan)
 {
-	this->adapter = new CRabbitMQ_Adapter(HostName,port,usr,psw);
+	this->adapter = new CRabbitMQ_Adapter(HostName,port,usr,psw,useConChan);
 }
 
 CRabbitMQ::~CRabbitMQ()
@@ -73,6 +73,21 @@ int32_t CRabbitMQ::publish(CMessage &message,string routkey,string &ErrorReturn)
 int32_t CRabbitMQ::publish(const string &message,string routekey,string &ErrorReturn)
 {
 	return this->adapter->publish(message,routekey,ErrorReturn);
+}
+
+int32_t CRabbitMQ::publish_ack(vector<CMessage> &message,string routekey, string &FailMessage, string &ErrorReturn)
+{
+	return this->adapter->publish_ack(message,routekey,ErrorReturn, FailMessage);
+}
+
+int32_t CRabbitMQ::publish_ack(CMessage &message,string routkey, string &FailMessage,string &ErrorReturn)
+{
+	return this->adapter->publish_ack(message,routkey,ErrorReturn, FailMessage);
+}
+
+int32_t CRabbitMQ::publish_ack(const string &message,string routekey, string &FailMessage,string &ErrorReturn)
+{
+	return this->adapter->publish_ack(message,routekey,ErrorReturn, FailMessage);
 }
 
 int32_t CRabbitMQ::getMessageCount(const CQueue &queue,string &ErrorReturn)

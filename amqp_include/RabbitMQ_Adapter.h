@@ -28,7 +28,8 @@ private:
     amqp_connection_state_t m_conn;
 	string					m_user;
 	string					m_psw;
-	uint32_t				m_channel; 
+	uint32_t				m_channel;
+	bool                    m_bUseConfirmChan;//开启使能发布信息后的确认信道
 
 	string m_routkey;
 	CExchange *m_exchange;
@@ -40,6 +41,7 @@ public:
 	* @brief CRabbitMQ 构造函数
 	* @param [int] HostName   消息队列名称
 	* @param [int] port       消息队列端口号
+	* @param [bool]useConChan 是否把信道使用amqp_confirm_select 在通道上打开public确认(对于需要public message信息后确认信息已经到达MQ队列中使用)
 	* @return 无
 	* @par 示例:
 	*  @code
@@ -47,7 +49,7 @@ public:
     *  @see      
 	*  @deprecated 由于特殊的原因，这个函数可能会在将来的版本中取消。
 	*/
-	CRabbitMQ_Adapter(string HostName="localhost",uint32_t port=5672,string usr="guest",string psw="guest");
+	CRabbitMQ_Adapter(string HostName="localhost",uint32_t port=5672,string usr="guest",string psw="guest", bool useConChan = false);
    //析构函数
 	~CRabbitMQ_Adapter();
    
@@ -154,6 +156,29 @@ public:
    int32_t publish(CMessage &message,string routkey,string &ErrorReturn);
 
    int32_t publish(const string &message,string routkey,string &ErrorReturn);
+
+    /**
+	* @brief publish_ack  发布消息(内部会等待1s消息是否已经被MQ处理了，没有处理就重发一次并且返回错误)
+	* @param [in] messag         消息实体
+	* @param [in] rout_key       路由规则 
+    *   1.Direct Exchange – 处理路由键。需要将一个队列绑定到交换机上，要求该消息与一个特定的路由键完全匹配。
+    *   2.Fanout Exchange – 不处理路由键。将队列绑定到交换机上。一个发送到交换机的消息都会被转发到与该交换机绑定的所有队列上。
+	*   3.Topic Exchange – 将路由键和某模式进行匹配。此时队列需要绑定要一个模式上。符号“#”匹配一个或多个词，符号“*”匹配不多不少一个词。
+    *      因此“audit.#”能够匹配到“audit.irs.corporate”，但是“audit.*” 只会匹配到“audit.irs”
+	* @param [out] ErrorReturn   错误信息
+	* @return 等于0值代表成功发送消息实体个数，小于0代表发送错误，错误信息从ErrorReturn返回
+	*
+	*  @par 示例:
+	*  @code
+    *  @endcode
+    *  @see      
+	*  @deprecated 由于特殊的原因，这个函数可能会在将来的版本中取消。
+	*/
+   int32_t publish_ack(vector<CMessage> &message,string routkey,string &ErrorReturn, string &FailMessage);
+
+   int32_t publish_ack(CMessage &message,string routkey,string &ErrorReturn, string &FailMessage);
+
+   int32_t publish_ack(const string &message,string routkey,string &ErrorReturn, string &FailMessage);
 
   /** 
 	* @brief consumer  消费消息

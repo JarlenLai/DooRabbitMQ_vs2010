@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 using namespace std;
-
+ 
 //定义全局变量
 string err = "";
 //获取全局变量的函数
@@ -15,12 +15,12 @@ extern Publish string& GetErr()
 	return err;
 }
 
- 
-CRabbitMQ_Adapter::CRabbitMQ_Adapter(string HostName, uint32_t port,string usr,string psw)
+CRabbitMQ_Adapter:: CRabbitMQ_Adapter(string HostName, uint32_t port,string usr,string psw, bool useConChan)
 {
 	this->m_hostName = HostName;
 	this->m_channel = 1; //默认用1号通道，通道无所谓 
 	this->m_port = port;
+	this->m_bUseConfirmChan = useConChan;
 
 	m_sock = NULL;
     m_conn = NULL;
@@ -37,6 +37,7 @@ CRabbitMQ_Adapter::~CRabbitMQ_Adapter()
 {
 	this->m_hostName ="";
 	this->m_port = 0;
+	this->m_bUseConfirmChan = false;
 	string errmsg;
 	if(NULL!=m_conn) 
 	{
@@ -108,6 +109,10 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 	if(1 == AssertError(amqp_login(m_conn, "/", 0, 131072, 30, AMQP_SASL_METHOD_PLAIN,m_user.c_str(),m_psw.c_str()),"Loging in",ErrorReturn))
 	{
 		amqp_channel_open(m_conn, m_channel);
+		if (m_bUseConfirmChan)
+		{
+			amqp_confirm_select(m_conn, m_channel);
+		}
 		return 0;
 	}
 	else
@@ -238,7 +243,7 @@ int32_t CRabbitMQ_Adapter::publish(vector<CMessage> &message,string routekey,str
 		  //printf("发送消息失败。");
 		  if(1!=AssertError(amqp_get_rpc_reply(m_conn),"amqp_basic_publish",ErrorReturn) )
 		  {
-			  amqp_channel_close(m_conn,m_channel, AMQP_REPLY_SUCCESS);
+			  amqp_channel_close(m_conn,m_channel, AMQP_REPLY_SUCCESS);//感觉这里会有梗(是否不关闭会更好一点呢)
 			  return -1;
 		  }
 	  }
@@ -259,6 +264,204 @@ int32_t CRabbitMQ_Adapter::publish(const string &message,string routekey,string 
 {
 	CMessage msg(message);
 	return publish(msg,routekey,ErrorReturn);
+
+}
+
+int32_t CRabbitMQ_Adapter::publish_ack(vector<CMessage> &message,string routekey,string &ErrorReturn, string &FailMessage)
+{
+	if(NULL ==m_conn)
+	{
+		ErrorReturn = "还未创建连接";
+		return -1;
+	}
+
+	amqp_basic_properties_t props;
+	props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
+	amqp_bytes_t _exchange = amqp_cstring_bytes(this->m_exchange->m_name.c_str());
+	amqp_bytes_t _rout_key = amqp_cstring_bytes(routekey.c_str());
+
+	vector<CMessage>::iterator it;
+	for(it=message.begin(); it!=message.end(); ++it) 
+	{
+		amqp_bytes_t message_bytes;
+		message_bytes.len =(*it).m_data.length();
+		message_bytes.bytes =(void *)((*it).m_data.c_str());
+		props.content_type = amqp_cstring_bytes((*it).m_type.c_str());
+		props.delivery_mode = (*it).m_durable; /* persistent delivery mode */
+
+		if(amqp_basic_publish(m_conn,
+							m_channel,
+							_exchange,
+							_rout_key,
+							1,//mandatory标志位,消息不能到达队列则返回basic.return
+							0,//immediate标志位,消息不能到达消费者返回basic.return
+							&props,message_bytes)!=0)
+		{
+			if(1!=AssertError(amqp_get_rpc_reply(m_conn),"amqp_basic_publish",ErrorReturn) )
+			{
+				return -1;
+			}
+		}
+	}
+
+	amqp_frame_t frame;
+	amqp_rpc_reply_t ret;
+	timeval timeout;//一秒超时
+	timeout.tv_sec = 1;
+	timeout.tv_usec = 0;
+	int statue;
+	int returnRet = 0;
+	uint64_t Seq = 0;
+	uint64_t MessageCount = message.size();
+
+	Loop:
+	if ((statue = amqp_simple_wait_frame_noblock(m_conn, &frame, &timeout)) != AMQP_STATUS_OK) 
+	{
+	  ErrorReturn = "wait ack public message return maybe timeout";
+	  FailMessage = ErrorReturn;
+      return -1;
+    }
+ 
+    if (AMQP_FRAME_METHOD == frame.frame_type)
+	{
+      amqp_method_t method = frame.payload.method;
+      //fprintf(stdout, "method.id=%08X,method.name=%s\n",method.id, amqp_method_name(method.id));
+      switch (method.id) 
+	  {
+        case AMQP_BASIC_ACK_METHOD:
+          /* if we've turned publisher confirms on, and we've published a message
+           * here is a message being confirmed
+           */
+          {
+            amqp_basic_ack_t *s;
+            s = (amqp_basic_ack_t *) method.decoded;
+            //fprintf(stdout, "Ack.delivery_tag=%d\n", s->delivery_tag);
+            //fprintf(stdout, "Ack.multiple=%d\n", s->multiple);
+			Seq = s->delivery_tag;
+			if (MessageCount > 1 &&  Seq < MessageCount)//确认到的数量和发送的数量不符合继续等
+			{
+				goto Loop;
+			}
+		  }
+ 
+          break;
+ 
+        case AMQP_BASIC_NACK_METHOD:
+          /* if we've turned publisher confirms on, and we've published a message
+           * here is a message not being confirmed
+           */
+          {
+			returnRet = -1;
+			ErrorReturn = "basic.nack";
+            amqp_basic_nack_t *s;
+			char str[502] = {0};
+            s = (amqp_basic_nack_t *) method.decoded;
+			sprintf_s(str, "ErrReson: basic.nack, ReceveMessage: NAck.delivery_tag=%d\r\n", s->delivery_tag);
+			FailMessage += str;
+			//fprintf(stdout, "NAck.delivery_tag=%d\n", s->delivery_tag);
+			Seq = s->delivery_tag;
+			if (MessageCount > 1 && Seq < MessageCount)//确认到的数量和发送的数量不符合继续等
+			{
+				goto Loop;
+			}
+          }
+ 
+          break;
+ 
+        case AMQP_BASIC_RETURN_METHOD:
+          /* if a published message couldn't be routed and the mandatory flag was set
+           * this is what would be returned. The message then needs to be read.
+           */
+          {
+			returnRet = -1;
+			ErrorReturn = "basic.return";
+            amqp_message_t message;
+            amqp_basic_return_t *s;
+			char str1[1024 * 5] = {0};
+			char str2[1024 * 6] = {0};
+			char szRouteKey[20] = {0};
+			strncpy_s(szRouteKey, (const char*)_rout_key.bytes, _rout_key.len); szRouteKey[_rout_key.len] = 0;
+
+            s = (amqp_basic_return_t *) method.decoded;
+            strncpy_s(str1, (const char*)s->reply_text.bytes, s->reply_text.len); str1[s->reply_text.len] = 0;
+			sprintf_s(str2, "ErrReason: %s basic.return, ", str1);
+			FailMessage += str2;
+			memset(str1, 0, sizeof(str1));
+			memset(str2, 0, sizeof(str2));
+
+            ret = amqp_read_message(m_conn, frame.channel, &message, 0);
+            if (AMQP_RESPONSE_NORMAL != ret.reply_type) {
+				sprintf_s(str1, "RouteKey:%s, ErrMessage: amqp_read_message err\r\n", szRouteKey);
+				FailMessage += str1;//记录MQ处理失败的消息以及原因
+              return -1;
+            }
+            strncpy_s(str1, (const char*)message.body.bytes, message.body.len); str1[message.body.len] = 0; 
+
+			sprintf_s(str2, "RouteKey:%s, PubilcMessage: %s\r\n", szRouteKey, str1);
+            FailMessage += str2;//记录MQ处理失败的消息以及原因
+
+			//重新发送消息(注意props变量用来上面的最后一次的配置,目前来说都是一样的)
+			if(amqp_basic_publish(m_conn,m_channel,_exchange,_rout_key,0,0,&props,message.body)!=0)
+			{
+				AssertError(amqp_get_rpc_reply(m_conn),"amqp_basic_publish",ErrorReturn);
+			}
+            amqp_destroy_message(&message);
+
+			if (MessageCount > 1 && Seq < MessageCount)//确认到的数量和发送的数量不符合继续等
+			{
+				goto Loop;
+			}
+          }
+ 
+          break;
+ 
+        case AMQP_CHANNEL_CLOSE_METHOD:
+          /* a channel.close method happens when a channel exception occurs, this
+           * can happen by publishing to an exchange that doesn't exist for example
+           *
+           * In this case you would need to open another channel redeclare any queues
+           * that were declared auto-delete, and restart any consumers that were attached
+           * to the previous channel
+           */
+			returnRet = -1;
+			FailMessage += "ErrReason: channel.close \r\n";
+			ErrorReturn = "channel.close";
+          break;
+ 
+        case AMQP_CONNECTION_CLOSE_METHOD:
+          /* a connection.close method happens when a connection exception occurs,
+           * this can happen by trying to use a channel that isn't open for example.
+           *
+           * In this case the whole connection must be restarted.
+           */
+			returnRet = -1;
+			FailMessage += "ErrReason: connection.close\r\n";
+			ErrorReturn = "connection.close";
+          break;
+ 
+        default:
+		   returnRet = -1;
+		   FailMessage += "Ack pubic message an unexpected method was received\r\n";
+		   ErrorReturn = "Ack pubic message an unexpected method was received";
+          //sprintf_s(err ,"Ack pubic message an unexpected method was received %d\n", frame.payload.method.id);
+		   break;
+    }
+  }
+
+	return returnRet;
+}
+
+int32_t CRabbitMQ_Adapter::publish_ack(CMessage &message,string routkey,string &ErrorReturn, string &FailMessage)
+{
+	vector<CMessage> msg;
+	msg.push_back(message);
+	return publish_ack(msg,routkey,ErrorReturn, FailMessage);
+}
+
+int32_t CRabbitMQ_Adapter::publish_ack(const string &message,string routekey,string &ErrorReturn, string &FailMessage)
+{
+	CMessage msg(message);
+	return publish_ack(msg,routekey,ErrorReturn, FailMessage);
 
 }
 
@@ -296,7 +499,6 @@ int32_t CRabbitMQ_Adapter::getMessageCount(const CQueue &queue,string &ErrorRetu
 	return TotalMessage;
 
 }
-
 
 int32_t CRabbitMQ_Adapter::getMessageCount(const string &queuename,string &ErrorReturn)
 {
@@ -421,8 +623,6 @@ int32_t CRabbitMQ_Adapter::consumer(CQueue &queue,vector<CMessage> &message, uin
 	return hasget;
 }
 
-
-
 void CRabbitMQ_Adapter::__sleep(uint32_t millsecond)
 {
 	
@@ -432,7 +632,6 @@ void CRabbitMQ_Adapter::__sleep(uint32_t millsecond)
 	  Sleep(millsecond);
 	#endif
 }
-
 
 void CRabbitMQ_Adapter::setUser(const string UserName)
 {
