@@ -21,6 +21,12 @@ CRabbitMQ_Adapter:: CRabbitMQ_Adapter(string HostName, uint32_t port,string usr,
 	this->m_channel = 1; //默认用1号通道，通道无所谓 
 	this->m_port = port;
 	this->m_bUseConfirmChan = useConChan;
+	this->m_mandatory = 0;
+
+	if(this->m_bUseConfirmChan)
+	{
+		this->m_mandatory = 1;//mandatory标志位,消息不能到达队列则返回basic.return
+	}
 
 	m_sock = NULL;
     m_conn = NULL;
@@ -109,7 +115,7 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 	if(1 == AssertError(amqp_login(m_conn, "/", 0, 131072, 30, AMQP_SASL_METHOD_PLAIN,m_user.c_str(),m_psw.c_str()),"Loging in",ErrorReturn))
 	{
 		amqp_channel_open(m_conn, m_channel);
-		if (m_bUseConfirmChan)
+		if (m_bUseConfirmChan)//是否在通道上打开Publish确认(这里打开了后面才能使用publish_ack_wait函数)
 		{
 			amqp_confirm_select(m_conn, m_channel);
 		}
@@ -209,20 +215,13 @@ int32_t  CRabbitMQ_Adapter::queue_unbind(CQueue &queue,CExchange &exchange,const
 //step 4 publish message 
 int32_t CRabbitMQ_Adapter::publish(vector<CMessage> &message,string routekey,string &ErrorReturn)
 {
-	
+	int32_t ret = 0;
 	if(NULL ==m_conn)
 	{
 		ErrorReturn = "还未创建连接";
 		return -1;
 	}
 	
-// 	amqp_channel_open(m_conn, m_channel);
-// 	if(1!=AssertError(amqp_get_rpc_reply(m_conn),"open channel",ErrorReturn) )
-// 	{
-// 		amqp_channel_close(m_conn,m_channel, AMQP_REPLY_SUCCESS);
-// 		return -1;
-// 	}
-
    amqp_basic_properties_t props;
    vector<CMessage>::iterator it;
    for(it=message.begin(); it!=message.end(); ++it) 
@@ -236,21 +235,18 @@ int32_t CRabbitMQ_Adapter::publish(vector<CMessage> &message,string routekey,str
 	  
 	  amqp_bytes_t _exchange = amqp_cstring_bytes(this->m_exchange->m_name.c_str());
 	  amqp_bytes_t _rout_key = amqp_cstring_bytes(routekey.c_str());
-	  //printf("message: %.*s\n",(int)message_bytes.len,(char *)message_bytes.bytes);
 	  
-	  if(amqp_basic_publish(m_conn,m_channel,_exchange,_rout_key,0,0,&props,message_bytes)!=0)
-	  {	  
-		  //printf("发送消息失败。");
+	  if(amqp_basic_publish(m_conn,m_channel,_exchange,_rout_key,m_mandatory,0,&props,message_bytes)!=0)
+	  {
+		  ret = -2;
 		  if(1!=AssertError(amqp_get_rpc_reply(m_conn),"amqp_basic_publish",ErrorReturn) )
 		  {
 			  amqp_channel_close(m_conn,m_channel, AMQP_REPLY_SUCCESS);//感觉这里会有梗(是否不关闭会更好一点呢)
 			  return -1;
 		  }
 	  }
-	//printf("message: %.*s\n",(int)message_bytes.len,(char *)message_bytes.bytes);
    }
-  // amqp_channel_close(m_conn,m_channel, AMQP_REPLY_SUCCESS);
-   return 0;
+   return ret;
 }
 
 int32_t CRabbitMQ_Adapter::publish(CMessage &message,string routkey,string &ErrorReturn)
@@ -267,59 +263,27 @@ int32_t CRabbitMQ_Adapter::publish(const string &message,string routekey,string 
 
 }
 
-int32_t CRabbitMQ_Adapter::publish_ack(vector<CMessage> &message,string routekey,string &ErrorReturn, string &FailMessage)
+
+int32_t CRabbitMQ_Adapter::publish_ack_wait(string &ErrorReturn, string &FailMessage)
 {
-	if(NULL ==m_conn)
+	FailMessage = "";
+	ErrorReturn = "";
+
+	if (!m_bUseConfirmChan)//是否在通道上打开Publish确认(只有打开了才能使用publish_ack_wait函数)
 	{
-		ErrorReturn = "还未创建连接";
 		return -1;
-	}
-
-	amqp_basic_properties_t props;
-	props._flags = AMQP_BASIC_CONTENT_TYPE_FLAG | AMQP_BASIC_DELIVERY_MODE_FLAG;
-	amqp_bytes_t _exchange = amqp_cstring_bytes(this->m_exchange->m_name.c_str());
-	amqp_bytes_t _rout_key = amqp_cstring_bytes(routekey.c_str());
-
-	vector<CMessage>::iterator it;
-	for(it=message.begin(); it!=message.end(); ++it) 
-	{
-		amqp_bytes_t message_bytes;
-		message_bytes.len =(*it).m_data.length();
-		message_bytes.bytes =(void *)((*it).m_data.c_str());
-		props.content_type = amqp_cstring_bytes((*it).m_type.c_str());
-		props.delivery_mode = (*it).m_durable; /* persistent delivery mode */
-
-		if(amqp_basic_publish(m_conn,
-							m_channel,
-							_exchange,
-							_rout_key,
-							1,//mandatory标志位,消息不能到达队列则返回basic.return
-							0,//immediate标志位,消息不能到达消费者返回basic.return
-							&props,message_bytes)!=0)
-		{
-			if(1!=AssertError(amqp_get_rpc_reply(m_conn),"amqp_basic_publish",ErrorReturn) )
-			{
-				return -1;
-			}
-		}
 	}
 
 	amqp_frame_t frame;
 	amqp_rpc_reply_t ret;
-	timeval timeout;//一秒超时
-	timeout.tv_sec = 1;
-	timeout.tv_usec = 0;
 	int statue;
 	int returnRet = 0;
-	uint64_t Seq = 0;
-	uint64_t MessageCount = message.size();
 
 	Loop:
-	if ((statue = amqp_simple_wait_frame_noblock(m_conn, &frame, &timeout)) != AMQP_STATUS_OK) 
+	if ((statue = amqp_simple_wait_frame(m_conn, &frame)) != AMQP_STATUS_OK) //函数是阻塞的
 	{
 	  ErrorReturn = "wait ack public message return maybe timeout";
-	  FailMessage = ErrorReturn;
-      return -1;
+      return 1;//返回1反正大于等于0的都表示成功
     }
  
     if (AMQP_FRAME_METHOD == frame.frame_type)
@@ -333,15 +297,12 @@ int32_t CRabbitMQ_Adapter::publish_ack(vector<CMessage> &message,string routekey
            * here is a message being confirmed
            */
           {
-            amqp_basic_ack_t *s;
-            s = (amqp_basic_ack_t *) method.decoded;
+			returnRet = 0;
+            //amqp_basic_ack_t *s;
+            //s = (amqp_basic_ack_t *) method.decoded;
             //fprintf(stdout, "Ack.delivery_tag=%d\n", s->delivery_tag);
             //fprintf(stdout, "Ack.multiple=%d\n", s->multiple);
-			Seq = s->delivery_tag;
-			if (MessageCount > 1 &&  Seq < MessageCount)//确认到的数量和发送的数量不符合继续等
-			{
-				goto Loop;
-			}
+			goto Loop;
 		  }
  
           break;
@@ -353,17 +314,9 @@ int32_t CRabbitMQ_Adapter::publish_ack(vector<CMessage> &message,string routekey
           {
 			returnRet = -1;
 			ErrorReturn = "basic.nack";
-            amqp_basic_nack_t *s;
-			char str[502] = {0};
-            s = (amqp_basic_nack_t *) method.decoded;
-			sprintf_s(str, "ErrReson: basic.nack, ReceveMessage: NAck.delivery_tag=%d\r\n", s->delivery_tag);
-			FailMessage += str;
+            //amqp_basic_nack_t *s;
+            //s = (amqp_basic_nack_t *) method.decoded;
 			//fprintf(stdout, "NAck.delivery_tag=%d\n", s->delivery_tag);
-			Seq = s->delivery_tag;
-			if (MessageCount > 1 && Seq < MessageCount)//确认到的数量和发送的数量不符合继续等
-			{
-				goto Loop;
-			}
           }
  
           break;
@@ -374,43 +327,29 @@ int32_t CRabbitMQ_Adapter::publish_ack(vector<CMessage> &message,string routekey
            */
           {
 			returnRet = -1;
-			ErrorReturn = "basic.return";
             amqp_message_t message;
-            amqp_basic_return_t *s;
+            amqp_basic_return_t *s = (amqp_basic_return_t *) method.decoded;;
 			char str1[1024 * 5] = {0};
 			char str2[1024 * 6] = {0};
 			char szRouteKey[20] = {0};
-			strncpy_s(szRouteKey, (const char*)_rout_key.bytes, _rout_key.len); szRouteKey[_rout_key.len] = 0;
-
-            s = (amqp_basic_return_t *) method.decoded;
+			strncpy_s(szRouteKey, (const char*)s->routing_key.bytes, s->routing_key.len); szRouteKey[s->routing_key.len] = 0;
             strncpy_s(str1, (const char*)s->reply_text.bytes, s->reply_text.len); str1[s->reply_text.len] = 0;
-			sprintf_s(str2, "ErrReason: %s basic.return, ", str1);
-			FailMessage += str2;
+			sprintf_s(str2, "ErrReason: %s basic.return, RouteKey:%s", str1, szRouteKey);
+			ErrorReturn = str2;
+
 			memset(str1, 0, sizeof(str1));
 			memset(str2, 0, sizeof(str2));
-
             ret = amqp_read_message(m_conn, frame.channel, &message, 0);
             if (AMQP_RESPONSE_NORMAL != ret.reply_type) {
 				sprintf_s(str1, "RouteKey:%s, ErrMessage: amqp_read_message err\r\n", szRouteKey);
-				FailMessage += str1;//记录MQ处理失败的消息以及原因
+				ErrorReturn += str1;//记录MQ处理失败的消息以及原因
               return -1;
             }
             strncpy_s(str1, (const char*)message.body.bytes, message.body.len); str1[message.body.len] = 0; 
+			sprintf_s(str2, "%s", str1);
+            FailMessage = str2;//记录MQ处理失败的消息
 
-			sprintf_s(str2, "RouteKey:%s, PubilcMessage: %s\r\n", szRouteKey, str1);
-            FailMessage += str2;//记录MQ处理失败的消息以及原因
-
-			//重新发送消息(注意props变量用来上面的最后一次的配置,目前来说都是一样的)
-			if(amqp_basic_publish(m_conn,m_channel,_exchange,_rout_key,0,0,&props,message.body)!=0)
-			{
-				AssertError(amqp_get_rpc_reply(m_conn),"amqp_basic_publish",ErrorReturn);
-			}
             amqp_destroy_message(&message);
-
-			if (MessageCount > 1 && Seq < MessageCount)//确认到的数量和发送的数量不符合继续等
-			{
-				goto Loop;
-			}
           }
  
           break;
@@ -423,8 +362,7 @@ int32_t CRabbitMQ_Adapter::publish_ack(vector<CMessage> &message,string routekey
            * that were declared auto-delete, and restart any consumers that were attached
            * to the previous channel
            */
-			returnRet = -1;
-			FailMessage += "ErrReason: channel.close \r\n";
+			returnRet = -2;
 			ErrorReturn = "channel.close";
           break;
  
@@ -434,35 +372,19 @@ int32_t CRabbitMQ_Adapter::publish_ack(vector<CMessage> &message,string routekey
            *
            * In this case the whole connection must be restarted.
            */
-			returnRet = -1;
-			FailMessage += "ErrReason: connection.close\r\n";
+			returnRet = -3;
 			ErrorReturn = "connection.close";
           break;
  
         default:
-		   returnRet = -1;
-		   FailMessage += "Ack pubic message an unexpected method was received\r\n";
+		   returnRet = -4;
 		   ErrorReturn = "Ack pubic message an unexpected method was received";
           //sprintf_s(err ,"Ack pubic message an unexpected method was received %d\n", frame.payload.method.id);
 		   break;
     }
   }
 
-	return returnRet;
-}
-
-int32_t CRabbitMQ_Adapter::publish_ack(CMessage &message,string routkey,string &ErrorReturn, string &FailMessage)
-{
-	vector<CMessage> msg;
-	msg.push_back(message);
-	return publish_ack(msg,routkey,ErrorReturn, FailMessage);
-}
-
-int32_t CRabbitMQ_Adapter::publish_ack(const string &message,string routekey,string &ErrorReturn, string &FailMessage)
-{
-	CMessage msg(message);
-	return publish_ack(msg,routekey,ErrorReturn, FailMessage);
-
+  return returnRet;
 }
 
 int32_t CRabbitMQ_Adapter::getMessageCount(const CQueue &queue,string &ErrorReturn)
