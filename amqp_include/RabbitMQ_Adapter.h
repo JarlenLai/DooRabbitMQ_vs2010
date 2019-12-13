@@ -159,7 +159,7 @@ public:
    int32_t publish(const string &message,string routkey,string &ErrorReturn);
 
    //要使用该函数 m_bUseConfirmChan 必须初始化是为true，开启publict通道确认功能
-   int32_t publish_ack_wait(string &ErrorReturn, string &FailMessage);
+   int32_t publish_ack_wait(string &ErrorReturn, string &FailMessage, timeval *tv);
 
 
   /** 

@@ -263,14 +263,20 @@ int32_t CRabbitMQ_Adapter::publish(const string &message,string routekey,string 
 
 }
 
-
-int32_t CRabbitMQ_Adapter::publish_ack_wait(string &ErrorReturn, string &FailMessage)
+int32_t CRabbitMQ_Adapter::publish_ack_wait(string &ErrorReturn, string &FailMessage, timeval *tv)
 {
 	FailMessage = "";
 	ErrorReturn = "";
 
+	if (m_conn == NULL)
+	{
+		ErrorReturn = "m_conn is NULL";
+		return -1;
+	}
+
 	if (!m_bUseConfirmChan)//是否在通道上打开Publish确认(只有打开了才能使用publish_ack_wait函数)
 	{
+		ErrorReturn = "no use amqp_select_confirm function";
 		return -1;
 	}
 
@@ -280,10 +286,10 @@ int32_t CRabbitMQ_Adapter::publish_ack_wait(string &ErrorReturn, string &FailMes
 	int returnRet = 0;
 
 	Loop:
-	if ((statue = amqp_simple_wait_frame(m_conn, &frame)) != AMQP_STATUS_OK) //函数是阻塞的
+	if ((statue = amqp_simple_wait_frame_noblock(m_conn, &frame, tv)) != AMQP_STATUS_OK) //如果tv=NULL则函数是阻塞的
 	{
 	  ErrorReturn = "wait ack public message return maybe timeout";
-      return 1;//返回1反正大于等于0的都表示成功
+      return RABBITMQ_WAIT_MESSAGE_TIMEOUT;//返回1反正大于等于0的都表示成功
     }
  
     if (AMQP_FRAME_METHOD == frame.frame_type)
@@ -297,14 +303,13 @@ int32_t CRabbitMQ_Adapter::publish_ack_wait(string &ErrorReturn, string &FailMes
            * here is a message being confirmed
            */
           {
-			returnRet = 0;
+			//returnRet = 0;
             //amqp_basic_ack_t *s;
             //s = (amqp_basic_ack_t *) method.decoded;
             //fprintf(stdout, "Ack.delivery_tag=%d\n", s->delivery_tag);
             //fprintf(stdout, "Ack.multiple=%d\n", s->multiple);
-			goto Loop;
+			//goto Loop;
 		  }
- 
           break;
  
         case AMQP_BASIC_NACK_METHOD:
@@ -349,7 +354,8 @@ int32_t CRabbitMQ_Adapter::publish_ack_wait(string &ErrorReturn, string &FailMes
 			sprintf_s(str2, "%s", str1);
             FailMessage = str2;//记录MQ处理失败的消息
 
-            amqp_destroy_message(&message);
+            amqp_destroy_message(&message);//释放amqp_message_t的内存
+			goto Loop;//抓包发现如果是back.return方法后面还会有back.ack方法返回的
           }
  
           break;

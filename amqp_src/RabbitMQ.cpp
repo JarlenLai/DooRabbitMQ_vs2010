@@ -75,9 +75,9 @@ int32_t CRabbitMQ::publish(const string &message,string routekey,string &ErrorRe
 	return this->adapter->publish(message,routekey,ErrorReturn);
 }
 
-int32_t CRabbitMQ::publish_ack_wait(string &ErrorReturn, string &FailMessage)
+int32_t CRabbitMQ::publish_ack_wait(string &ErrorReturn, string &FailMessage, timeval *tv)
 {
-	return this->adapter->publish_ack_wait(ErrorReturn, FailMessage);
+	return this->adapter->publish_ack_wait(ErrorReturn, FailMessage, tv);
 }
 
 int32_t CRabbitMQ::getMessageCount(const CQueue &queue,string &ErrorReturn)
