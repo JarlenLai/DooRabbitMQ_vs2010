@@ -1,50 +1,19 @@
-﻿Build started 2019/12/13 15:53:07.
-     1>Project "E:\OpenSource\DooRabbitMQ_vs2010\mq.vcxproj" on node 2 (rebuild target(s)).
-     1>_PrepareForClean:
-         Deleting file "Debug\mq.lastbuildstate".
-       InitializeBuildStatus:
-         Creating "Debug\mq.unsuccessfulbuild" because "AlwaysCreate" was specified.
-       ClCompile:
-         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\CL.exe /c /I.\AMQP_include /I"D:\tool\VisualLeakDetector\Visual Leak Detector\include" /ZI /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _WINDLL /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc100.pdb" /Gd /TP /analyze- /errorReport:prompt AMQP_src\RabbitMQ.cpp AMQP_src\RabbitMQ_Adapter.cpp
-         RabbitMQ_Adapter.cpp
-     1>e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(602): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : see declaration of 'sprintf'
-     1>e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(606): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : see declaration of 'sprintf'
-     1>e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(616): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : see declaration of 'sprintf'
-     1>e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(624): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : see declaration of 'sprintf'
-     1>e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(628): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 c:\program files (x86)\microsoft visual studio 10.0\vc\include\stdio.h(371) : see declaration of 'sprintf'
-         RabbitMQ.cpp
-         Generating Code...
-       ManifestResourceCompile:
-         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\rc.exe /nologo /fo"Debug\MQd.dll.embed.manifest.res" Debug\MQd_manifest.rc 
-       Link:
-         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:".\lib32debug\MQd.dll" /INCREMENTAL /NOLOGO /LIBPATH:.\lib32debug /LIBPATH:"D:\tool\VisualLeakDetector\Visual Leak Detector\lib\Win32" kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib ws2_32.lib librabbitmq.4.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\MQd.dll.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"E:\OpenSource\DooRabbitMQ_vs2010\lib32debug\MQd.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\lib32debug\MQd.lib" /MACHINE:X86 /DLL Debug\MQd.dll.embed.manifest.res
-         Debug\RabbitMQ.obj
-         Debug\RabbitMQ_Adapter.obj
-            Creating library .\lib32debug\MQd.lib and object .\lib32debug\MQd.exp
-     1>RabbitMQ_Adapter.obj : warning LNK4049: locally defined symbol _amqp_empty_table imported
-     1>RabbitMQ_Adapter.obj : warning LNK4049: locally defined symbol _amqp_empty_bytes imported
-       Manifest:
-         Deleting file "Debug\MQd.dll.embed.manifest".
-         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\mt.exe /nologo /verbose /out:"Debug\MQd.dll.embed.manifest" /manifest Debug\MQd.dll.intermediate.manifest
-         C:\Program Files (x86)\Microsoft SDKs\Windows\v7.0A\bin\rc.exe /nologo /fo"Debug\MQd.dll.embed.manifest.res" Debug\MQd_manifest.rc 
-       LinkEmbedManifest:
-         C:\Program Files (x86)\Microsoft Visual Studio 10.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:".\lib32debug\MQd.dll" /INCREMENTAL /NOLOGO /LIBPATH:.\lib32debug /LIBPATH:"D:\tool\VisualLeakDetector\Visual Leak Detector\lib\Win32" kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib ws2_32.lib librabbitmq.4.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /ManifestFile:"Debug\MQd.dll.intermediate.manifest" /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /DEBUG /PDB:"E:\OpenSource\DooRabbitMQ_vs2010\lib32debug\MQd.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\lib32debug\MQd.lib" /MACHINE:X86 /DLL Debug\MQd.dll.embed.manifest.res
-         Debug\RabbitMQ.obj
-         Debug\RabbitMQ_Adapter.obj
-            Creating library .\lib32debug\MQd.lib and object .\lib32debug\MQd.exp
-     1>RabbitMQ_Adapter.obj : warning LNK4049: locally defined symbol _amqp_empty_table imported
-     1>RabbitMQ_Adapter.obj : warning LNK4049: locally defined symbol _amqp_empty_bytes imported
-         mq.vcxproj -> E:\OpenSource\DooRabbitMQ_vs2010\.\lib32debug\MQd.dll
-       FinalizeBuildStatus:
-         Deleting file "Debug\mq.unsuccessfulbuild".
-         Touching "Debug\mq.lastbuildstate".
-     1>Done Building Project "E:\OpenSource\DooRabbitMQ_vs2010\mq.vcxproj" (rebuild target(s)).
-
-Build succeeded.
-
-Time Elapsed 00:00:03.02
+﻿C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\Common7\IDE\VC\VCTargets\Microsoft.CppBuild.targets(376,5): warning MSB8004: Intermediate 目录未以斜杠结尾。  此生成实例将添加斜杠，因为必须有这个斜杠才能正确计算 Intermediate 目录。
+  RabbitMQ.cpp
+  RabbitMQ_Adapter.cpp
+e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(629): warning C4477: “sprintf”: 格式字符串“%s”需要类型“char *”的参数，但可变参数 1 拥有了类型“std::string”
+e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(603): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.18362.0\ucrt\stdio.h(1774): note: 参见“sprintf”的声明
+e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(607): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.18362.0\ucrt\stdio.h(1774): note: 参见“sprintf”的声明
+e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(614): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.18362.0\ucrt\stdio.h(1774): note: 参见“sprintf”的声明
+e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(622): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.18362.0\ucrt\stdio.h(1774): note: 参见“sprintf”的声明
+e:\opensource\doorabbitmq_vs2010\amqp_src\rabbitmq_adapter.cpp(629): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  c:\program files (x86)\windows kits\10\include\10.0.18362.0\ucrt\stdio.h(1774): note: 参见“sprintf”的声明
+  正在生成代码...
+    正在创建库 .\lib64debug\mq_d.lib 和对象 .\lib64debug\mq_d.exp
+RabbitMQ_Adapter.obj : warning LNK4049: 已导入本地定义的符号 amqp_empty_bytes
+RabbitMQ_Adapter.obj : warning LNK4049: 已导入本地定义的符号 amqp_empty_table
+  mq.vcxproj -> E:\OpenSource\DooRabbitMQ_vs2010\.\lib64debug\mq_d.dll

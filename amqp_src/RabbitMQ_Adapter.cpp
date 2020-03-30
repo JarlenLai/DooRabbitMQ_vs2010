@@ -105,11 +105,12 @@ int32_t CRabbitMQ_Adapter::Connect(string &ErrorReturn)
 		return -3;
 	}
 
-	int status = amqp_socket_open(m_sock,m_hostName.c_str(),m_port);
+	timeval timeOut = { 10, 0 };//超时时间10s;
+	int status = amqp_socket_open_noblock(m_sock,m_hostName.c_str(),m_port, &timeOut);
 	if(status<0)
 	{
 		ErrorReturn = "无法连接目标主机";
-		return -4;
+		return status;
 	}
 	
 	if(1 == AssertError(amqp_login(m_conn, "/", 0, 131072, 30, AMQP_SASL_METHOD_PLAIN,m_user.c_str(),m_psw.c_str()),"Loging in",ErrorReturn))
